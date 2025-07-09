@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesador Excel para WASender</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1B5F7A 35%, #2B9BC7 70%, #4AC8E8 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Elementos decorativos de fondo */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 50%, rgba(74, 200, 232, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(43, 155, 199, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 80%, rgba(27, 95, 122, 0.1) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(1deg); }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 100%);
+            backdrop-filter: blur(20px);
+            padding: 50px;
+            border-radius: 25px;
+            margin-bottom: 40px;
+            box-shadow: 
+                0 25px 50px rgba(0,0,0,0.1),
+                0 0 0 1px rgba(255,255,255,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4AC8E8 0%, #2B9BC7 50%, #1B5F7A 100%);
+        }
+        
+        .header::after {
+            content: '⚗️';
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 2.5rem;
+            opacity: 0.3;
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        
+        .header h1 {
+            background: linear-gradient(135deg, #1B5F7A 0%, #2B9BC7 50%, #4AC8E8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+            position: relative;
+        }
+        
+        .header p {
+            color: #1B5F7A;
+            font-size: 1.3rem;
+            font-weight: 500;
+            opacity: 0.8;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .section-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.1),
+                0 0 0 1px rgba(255,255,255,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            position: relative;
+            border: 1px solid rgba(74, 200, 232, 0.2);
+        }
+        
+        .upload-section {
+            position: relative;
+        }
+        
+        .upload-area {
+            border: 3px dashed rgba(74, 200, 232, 0.4);
+            border-radius: 20px;
+            padding: 60px 40px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, 
+                rgba(248, 253, 255, 0.8) 0%, 
+                rgba(232, 249, 255, 0.6) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(74, 200, 232, 0.1), 
+                transparent);
+            transition: left 0.6s;
+        }
+        
+        .upload-area:hover::before {
+            left: 100%;
+        }
+        
+        .upload-area:hover {
+            border-color: #2B9BC7;
+            background: linear-gradient(135deg, 
+                rgba(232, 249, 255, 0.9) 0%, 
+                rgba(209, 242, 255, 0.7) 100%);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(43, 155, 199, 0.2);
+        }
+        
+        .upload-icon {
+            font-size: 5rem;
+            background: linear-gradient(135deg, #2B9BC7 0%, #4AC8E8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .upload-area h3 {
+            color: #1B5F7A;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .upload-area p {
+            color: #2B9BC7;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-button {
+            background: linear-gradient(135deg, #1B5F7A 0%, #2B9BC7 50%, #4AC8E8 100%);
+            color: white;
+            padding: 18px 40px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 
+                0 10px 30px rgba(43, 155, 199, 0.4),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.2), 
+                transparent);
+            transition: left 0.6s;
+        }
+        
+        .upload-button:hover::before {
+            left: 100%;
+        }
+        
+        .upload-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 
+                0 15px 40px rgba(43, 155, 199, 0.5),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+        
+        .stats-section {
+            display: none;
+            margin-bottom: 40px;
+        }
+        
+        .stats-title {
+            color: #1B5F7A;
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .stats-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #4AC8E8, #2B9BC7);
+            border-radius: 2px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, 
+                rgba(255,255,255,0.9) 0%, 
+                rgba(248,253,255,0.8) 100%);
+            backdrop-filter: blur(15px);
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 
+                0 15px 35px rgba(0,0,0,0.08),
+                0 0 0 1px rgba(74, 200, 232, 0.1);
+            display: flex;
+            align-items: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(180deg, #4AC8E8, #2B9BC7, #1B5F7A);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 
+                0 25px 50px rgba(0,0,0,0.15),
+                0 0 0 1px rgba(74, 200, 232, 0.2);
+        }
+        
+        .stat-icon {
+            font-size: 4rem;
+            margin-right: 25px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        }
+        
+        .stat-content {
+            flex: 1;
+        }
+        
+        .stat-number {
+            font-size: 2.8rem;
+            font-weight: 900;
+            margin-bottom: 8px;
+            line-height: 1;
+        }
+        
+        .stat-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+        
+        .blue { color: #2B9BC7; }
+        .green { color: #4AC8E8; }
+        .red { color: #1B5F7A; }
+        
+        .preview-section {
+            display: none;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .preview-title {
+            color: #1B5F7A;
+            font-size: 2rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .toggle-button {
+            background: linear-gradient(135deg, #4AC8E8 0%, #2B9BC7 100%);
+            color: white;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 25px rgba(74, 200, 232, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .toggle-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.2), 
+                transparent);
+            transition: left 0.5s;
+        }
+        
+        .toggle-button:hover::before {
+            left: 100%;
+        }
+        
+        .toggle-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(74, 200, 232, 0.4);
+        }
+        
+        .preview-content {
+            display: none;
+            background: linear-gradient(135deg, 
+                rgba(248, 253, 255, 0.9) 0%, 
+                rgba(232, 249, 255, 0.7) 100%);
+            backdrop-filter: blur(15px);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(74, 200, 232, 0.3);
+        }
+        
+        .preview-subtitle {
+            color: #2B9BC7;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .preview-item {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(74, 200, 232, 0.2);
+            box-shadow: 0 8px 25px rgba(74, 200, 232, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .preview-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, #4AC8E8, #2B9BC7);
+            border-radius: 0 0 0 15px;
+        }
+        
+        .preview-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 12px 35px rgba(74, 200, 232, 0.15);
+        }
+        
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .preview-field {
+            word-break: break-word;
+        }
+        
+        .preview-field strong {
+            color: #1B5F7A;
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        
+        .preview-field-content {
+            color: #2B9BC7;
+            font-weight: 500;
+            padding: 8px 12px;
+            background: rgba(74, 200, 232, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #4AC8E8;
+        }
+        
+        .preview-message {
+            background: linear-gradient(135deg, 
+                rgba(240, 249, 255, 0.9) 0%, 
+                rgba(224, 246, 255, 0.8) 100%);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-line;
+            border: 1px solid rgba(74, 200, 232, 0.3);
+            color: #1B5F7A;
+            line-height: 1.6;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        .download-section {
+            display: none;
+        }
+        
+        .download-title {
+            color: #1B5F7A;
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .download-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(90deg, #4AC8E8, #2B9BC7);
+            border-radius: 2px;
+        }
+        
+        .warning-box {
+            background: linear-gradient(135deg, 
+                rgba(255, 243, 205, 0.9) 0%, 
+                rgba(255, 234, 167, 0.8) 100%);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-left: 5px solid #f59e0b;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.1);
+            position: relative;
+        }
+        
+        .warning-box::before {
+            content: '⚠️';
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 1.5rem;
+            opacity: 0.6;
+        }
+        
+        .warning-box p {
+            color: #92400e;
+            font-size: 1.05rem;
+            margin: 0;
+            font-weight: 600;
+            line-height: 1.6;
+        }
+        
+        .download-buttons {
+            display: flex;
+            gap: 25px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .download-button {
+            background: linear-gradient(135deg, #4AC8E8 0%, #2B9BC7 50%, #1B5F7A 100%);
+            color: white;
+            padding: 20px 35px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 
+                0 10px 30px rgba(74, 200, 232, 0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
+            min-width: 200px;
+            justify-content: center;
+        }
+        
+        .download-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.2), 
+                transparent);
+            transition: left 0.6s;
+        }
+        
+        .download-button:hover::before {
+            left: 100%;
+        }
+        
+        .download-button:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 
+                0 15px 40px rgba(74, 200, 232, 0.4),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+        
+        .download-button.excel {
+            background: linear-gradient(135deg, #1B5F7A 0%, #2B9BC7 50%, #4AC8E8 100%);
+            box-shadow: 
+                0 10px 30px rgba(27, 95, 122, 0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        
+        .download-button.excel:hover {
+            box-shadow: 
+                0 15px 40px rgba(27, 95, 122, 0.4),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+        
+        .instructions {
+            background: linear-gradient(135deg, 
+                rgba(27, 95, 122, 0.95) 0%, 
+                rgba(43, 155, 199, 0.9) 100%);
+            backdrop-filter: blur(20px);
+            color: white;
+            padding: 45px;
+            border-radius: 25px;
+            box-shadow: 
+                0 25px 50px rgba(27, 95, 122, 0.3),
+                0 0 0 1px rgba(255,255,255,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .instructions::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(74, 200, 232, 0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .instructions h3 {
+            color: #4AC8E8;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .instructions ol {
+            color: white;
+            padding-left: 30px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .instructions li {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            line-height: 1.7;
+            font-weight: 500;
+            padding-left: 10px;
+            position: relative;
+        }
+        
+        .instructions li::marker {
+            color: #4AC8E8;
+            font-weight: 700;
+        }
+        
+        .progress {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.1),
+                0 0 0 1px rgba(74, 200, 232, 0.2);
+            text-align: center;
+            border: 2px solid rgba(74, 200, 232, 0.3);
+        }
+        
+        .spinner {
+            border: 5px solid rgba(232, 249, 255, 0.3);
+            border-top: 5px solid #2B9BC7;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 25px;
+            filter: drop-shadow(0 4px 8px rgba(43, 155, 199, 0.3));
+        }
+        
+        .progress p {
+            color: #1B5F7A;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsivo mejorado */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .download-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 30px 25px;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .section-card {
+                padding: 25px;
+            }
+            
+            .upload-area {
+                padding: 40px 20px;
+            }
+            
+            .upload-icon {
+                font-size: 3.5rem;
+            }
+            
+            .preview-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .download-button {
+                min-width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats-title, .preview-title, .download-title {
+                font-size: 1.5rem;
+            }
+            
+            .instructions h3 {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Animaciones mejoradas */
+        .section-card {
+            animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .stat-card {
+            animation: fadeInScale 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            animation-delay: calc(var(--index) * 0.1s);
+        }
+        
+        .preview-item {
+            animation: slideInLeft 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            animation-delay: calc(var(--index) * 0.1s);
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Efectos de partículas decorativas */
+        .header::after {
+            content: '⚗️ 📊 💼 📱';
+            position: absolute;
+            top: 50%;
+            right: 30px;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            opacity: 0.1;
+            letter-spacing: 10px;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        /* Mejoras de accesibilidad */
+        .upload-button:focus,
+        .toggle-button:focus,
+        .download-button:focus {
+            outline: 3px solid #4AC8E8;
+            outline-offset: 2px;
+        }
+        
+        /* Estados de carga mejorados */
+        .processing {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .processing .upload-area {
+            border-color: #2B9BC7;
+            background: linear-gradient(135deg, 
+                rgba(232, 249, 255, 0.5) 0%, 
+                rgba(209, 242, 255, 0.3) 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 Procesador Excel para WASender</h1>
+            <p>Convierte tu export contable al formato requerido por WASender de forma profesional y automatizada</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="section-card upload-section">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📊</div>
+                <h3>Arrastra o selecciona tu archivo Excel</h3>
+                <p>
+                    Selecciona el archivo de deudores del sistema contable<br>
+                    <small>Formatos soportados: .xlsx, .xls</small>
+                </p>
+                <button type="button" class="upload-button">
+                    📁 Seleccionar Archivo
+                </button>
+                <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" />
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div id="progress" class="progress">
+            <div class="spinner"></div>
+            <p>🔄 Procesando archivo...</p>
+        </div>
+
+        <!-- Stats Section -->
+        <div id="statsSection" class="stats-section">
+            <div class="section-card">
+                <h2 class="stats-title">📊 Análisis de Datos</h2>
+                <div class="stats-grid">
+                    <div class="stat-card" style="--index: 0">
+                        <div class="stat-icon blue">📄</div>
+                        <div class="stat-content">
+                            <div id="totalClients" class="stat-number blue">0</div>
+                            <div class="stat-label blue">Total Clientes</div>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="--index: 1">
+                        <div class="stat-icon green">📱</div>
+                        <div class="stat-content">
+                            <div id="withPhone" class="stat-number green">0</div>
+                            <div class="stat-label green">Con Teléfono</div>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="--index: 2">
+                        <div class="stat-icon red">⚠️</div>
+                        <div class="stat-content">
+                            <div id="withoutPhone" class="stat-number red">0</div>
+                            <div class="stat-label red">Sin Teléfono</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div id="previewSection" class="preview-section">
+            <div class="section-card">
+                <div class="preview-header">
+                    <h2 class="preview-title">👁️ Vista Previa</h2>
+                    <button id="togglePreview" class="toggle-button">🔍 Ver Preview</button>
+                </div>
+                <div id="previewContent" class="preview-content">
+                    <p class="preview-subtitle">📋 Primeros 3 registros procesados:</p>
+                    <div id="previewItems"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div id="downloadSection" class="download-section">
+            <div class="section-card">
+                <h2 class="download-title">💾 Descargar Archivos</h2>
+                <div class="warning-box">
+                    <p><strong>📋 Importante:</strong> Solo se incluirán los clientes que tienen teléfono válido. Los clientes sin teléfono serán excluidos automáticamente del archivo final.</p>
+                </div>
+                <div class="download-buttons">
+                    <button id="downloadCSV" class="download-button">
+                        <span>📥</span>
+                        Descargar CSV para WASender
+                    </button>
+                    <button id="downloadExcel" class="download-button excel">
+                        <span>📊</span>
+                        Descargar Excel Backup
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>🎯 Próximos Pasos</h3>
+            <ol>
+                <li>📥 Descarga el archivo CSV generado por esta herramienta</li>
+                <li>🌐 Instala la extensión WASender desde Chrome Web Store</li>
+                <li>💬 Abre WhatsApp Web en tu navegador</li>
+                <li>⚙️ Activa la extensión WASender y carga tu archivo CSV</li>
+                <li>⏰ Configura intervalos de 10-15 segundos entre mensajes</li>
+                <li>🧪 Realiza una prueba con 3-5 clientes conocidos primero</li>
+                <li>🚀 Procede con el envío masivo de forma gradual</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        let processedData = [];
+        let originalData = [];
+
+        // Event Listeners
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('togglePreview').addEventListener('click', togglePreview);
+        document.getElementById('downloadCSV').addEventListener('click', downloadCSV);
+        document.getElementById('downloadExcel').addEventListener('click', downloadExcel);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showProgress();
+            setTimeout(() => processFile(file), 100);
+        }
+
+        function showProgress() {
+            document.getElementById('progress').style.display = 'block';
+        }
+
+        function hideProgress() {
+            document.getElementById('progress').style.display = 'none';
+        }
+
+        function extractPhone(direccion) {
+            if (!direccion) return '';
+            const phoneMatch = direccion.match(/Tel\s*(\d+)/);
+            return phoneMatch ? `+57${phoneMatch[1]}` : '';
+        }
+
+        function formatDate(dateValue) {
+            if (!dateValue) return '';
+            const date = new Date(dateValue);
+            return date.toLocaleDateString('es-CO', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0
+            }).format(value);
+        }
+
+        function formatName(name) {
+            if (!name) return '';
+            return name.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function createMessage(cliente, facturas) {
+            let mensaje = `Hola ${cliente}
+
+Te recordamos amablemente que tienes las siguientes facturas pendientes:
+
+`;
+
+            facturas.forEach(factura => {
+                mensaje += `📋 ${factura.tipoDoc} N° ${factura.numeroDoc}
+📅 Vencimiento: ${formatDate(factura.fechaVencimiento)}
+💰 Valor: ${formatCurrency(factura.valorTotal)}
+⏰ Días vencidos: ${factura.diasVencidos}
+
+`;
+            });
+
+            mensaje += `💳 Formas de pago disponibles:
+🏦 Transferencia Bancolombia
+   Cuenta Ahorros: 52619123972
+   Titular: Jorge Luis Rivera Parras
+   Cédula: 72.195.777
+
+📱 Billeteras digitales:
+   • NEQUI: 3013356190
+   • DAVIPLATA: 3013356190
+
+🏢 Nuestro local:
+   ASESORIAS QUÍMICAS JS
+   Carrera 7 # 33-21 Local 6
+   Riohacha, La Guajira
+
+¿Necesitas facilidades de pago? Llámanos: 3013356190
+
+Gracias por tu atención.
+ASESORIAS QUÍMICAS JS
+Jorge Luis Rivera Parras
+
+Responde STOP para no recibir recordatorios.`;
+
+            return mensaje;
+        }
+
+        async function processFile(file) {
+            try {
+                const buffer = await file.arrayBuffer();
+                const workbook = XLSX.read(buffer);
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                originalData = jsonData;
+
+                // Procesar datos (saltando las primeras 3 filas que son headers)
+                const facturaRows = [];
+                for (let i = 3; i < jsonData.length; i++) {
+                    const row = jsonData[i];
+                    if (row && row[0] && !row[0].toString().startsWith('Total ')) {
+                        // Solo agregar si tiene nombre de cliente (no es una fila vacía de continuación)
+                        if (row[0].trim()) {
+                            facturaRows.push({
+                                cliente: row[0],
+                                direccion: row[1],
+                                tipoDoc: row[2],
+                                numeroDoc: row[3],
+                                fechaVencimiento: row[4],
+                                valorTotal: row[7],
+                                diasVencidos: row[8]
+                            });
+                        } else {
+                            // Es una fila de continuación (cliente vacío), usar el cliente anterior
+                            if (facturaRows.length > 0) {
+                                const ultimoCliente = facturaRows[facturaRows.length - 1].cliente;
+                                const ultimaDireccion = facturaRows[facturaRows.length - 1].direccion;
+                                facturaRows.push({
+                                    cliente: ultimoCliente,
+                                    direccion: ultimaDireccion,
+                                    tipoDoc: row[2],
+                                    numeroDoc: row[3],
+                                    fechaVencimiento: row[4],
+                                    valorTotal: row[7],
+                                    diasVencidos: row[8]
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Agrupar facturas por cliente
+                const clientesAgrupados = {};
+                facturaRows.forEach(factura => {
+                    if (!clientesAgrupados[factura.cliente]) {
+                        clientesAgrupados[factura.cliente] = {
+                            cliente: factura.cliente,
+                            direccion: factura.direccion,
+                            facturas: []
+                        };
+                    }
+                    clientesAgrupados[factura.cliente].facturas.push(factura);
+                });
+
+                // Convertir a formato WASender (un registro por cliente)
+                processedData = Object.values(clientesAgrupados).map(clienteData => {
+                    const phone = extractPhone(clienteData.direccion);
+                    const message = createMessage(clienteData.cliente, clienteData.facturas);
+
+                    return {
+                        Name: formatName(clienteData.cliente),
+                        Phone: phone,
+                        Message: message,
+                        hasPhone: phone !== '',
+                        facturaCount: clienteData.facturas.length
+                    };
+                });
+
+                // Calcular estadísticas
+                const withPhone = processedData.filter(item => item.hasPhone).length;
+                updateStats(processedData.length, withPhone, processedData.length - withPhone);
+
+                // Mostrar preview
+                updatePreview(processedData.slice(0, 3));
+
+                // Mostrar secciones
+                showSections();
+
+                hideProgress();
+
+            } catch (error) {
+                console.error('Error procesando archivo:', error);
+                alert('Error al procesar el archivo. Verifica que sea un Excel válido.');
+                hideProgress();
+            }
+        }
+
+        function updateStats(total, withPhone, withoutPhone) {
+            document.getElementById('totalClients').textContent = total;
+            document.getElementById('withPhone').textContent = withPhone;
+            document.getElementById('withoutPhone').textContent = withoutPhone;
+        }
+
+        function updatePreview(previewData) {
+            const container = document.getElementById('previewItems');
+            container.innerHTML = '';
+
+            previewData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.style.setProperty('--index', index);
+                div.innerHTML = `
+                    <div class="preview-grid">
+                        <div class="preview-field">
+                            <strong>👤 Cliente:</strong>
+                            <div class="preview-field-content">${item.Name}</div>
+                        </div>
+                        <div class="preview-field">
+                            <strong>📱 Teléfono:</strong>
+                            <div class="preview-field-content">${item.Phone || '❌ Sin teléfono'}</div>
+                        </div>
+                        <div class="preview-field">
+                            <strong>📋 Facturas:</strong>
+                            <div class="preview-field-content">${item.facturaCount || 1} factura(s)</div>
+                        </div>
+                        <div class="preview-field">
+                            <strong>✅ Estado:</strong>
+                            <div class="preview-field-content">${item.hasPhone ? '✅ Listo para envío' : '❌ Necesita teléfono'}</div>
+                        </div>
+                    </div>
+                    <div class="preview-field" style="margin-top: 20px;">
+                        <strong>💬 Mensaje WhatsApp:</strong>
+                        <div class="preview-message">${item.Message.substring(0, 600)}${item.Message.length > 600 ? '...' : ''}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function showSections() {
+            document.getElementById('statsSection').style.display = 'block';
+            document.getElementById('previewSection').style.display = 'block';
+            document.getElementById('downloadSection').style.display = 'block';
+        }
+
+        function togglePreview() {
+            const content = document.getElementById('previewContent');
+            const button = document.getElementById('togglePreview');
+            
+            if (content.style.display === 'none' || content.style.display === '') {
+                content.style.display = 'block';
+                button.textContent = '🙈 Ocultar Preview';
+            } else {
+                content.style.display = 'none';
+                button.textContent = '🔍 Ver Preview';
+            }
+        }
+
+        function downloadCSV() {
+            const validData = processedData.filter(item => item.hasPhone);
+            
+            const csvData = validData.map(item => ({
+                Name: item.Name,
+                Phone: item.Phone,
+                Message: item.Message
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(csvData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'WASender_Data');
+            
+            XLSX.writeFile(workbook, 'WASender_Export.csv');
+        }
+
+        function downloadExcel() {
+            const validData = processedData.filter(item => item.hasPhone);
+            
+            const excelData = validData.map(item => ({
+                Name: item.Name,
+                Phone: item.Phone,
+                Message: item.Message
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'WASender_Data');
+            
+            XLSX.writeFile(workbook, 'WASender_Export.xlsx');
+        }
+    </script>
+</body>
+</html>
